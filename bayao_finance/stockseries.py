@@ -60,9 +60,10 @@ class StockSeries(Series):
         ----------
         n:int = Number of rows for index.
         min_periods: int, default None
-            Minimum number of observations in window required to have a value (otherwise
-             result is NA). For a window that is specified by an offset, min_periods will
-              default to 1. Otherwise, min_periods will default to the size of the window.
+            Minimum number of observations in window required to have a value
+            (otherwise result is NA). For a window that is specified by an
+            offset, min_periods will default to 1.
+            Otherwise, min_periods will default to the size of the window.
 
 
         Returns
@@ -85,9 +86,10 @@ class StockSeries(Series):
         ----------
         n:int = Number of rows for index.
         min_periods: int, default None
-            Minimum number of observations in window required to have a value (otherwise
-             result is NA). For a window that is specified by an offset, min_periods will
-              default to 1. Otherwise, min_periods will default to the size of the window.
+            Minimum number of observations in window required to have a value
+            (otherwise result is NA). For a window that is specified by an
+            offset, min_periods will default to 1.
+            Otherwise, min_periods will default to the size of the window.
 
 
         Returns
@@ -108,25 +110,20 @@ class StockSeries(Series):
     def get_bollinger_bands(self, n=20, k=2):
         return get_bollinger_bands_from_data(self, n, k)
 
-    def get_rsi(self, data=None, n=14, com=None):
-        if data is None:
-            data = self._stock_close
-        if com is None:
-            com = n - 1
+    def get_rsi(self, n=14, min_periods=None, **kwargs):
+        if not min_periods:
+            min_periods = n
+        data = self
 
-        lost_index = data.index[:n]
-        delta = data.diff().dropna().copy()
-        u = delta * 0
-        d = u.copy()
-        u[delta > 0] = delta[delta > 0]
-        d[delta < 0] = -delta[delta < 0]
-        u[u.index[n - 1]] = np.mean(u[:n])  # first value is average of gains
-        u = u.drop(u.index[:(n - 1)])
-        d[d.index[n - 1]] = np.mean(d[:n])  # first value is average of losses
-        d = d.drop(d.index[:(n - 1)])
-        rs = u.ewm(com=n, min_periods=n).mean() / d.ewm(com=n, min_periods=n).mean()
+        delta = data.diff().copy()
+        u = np.where(delta >= 0, delta, 0)
+        d = np.where(delta < 0, -1 * delta, 0)
+        rs = (
+                u.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean() /
+                d.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean()
+        )
         rsi_calc = 100 - 100 / (1 + rs)
-        return rsi_calc.reindex(list(lost_index) + list(rsi_calc.index))
+        return rsi_calc
 
     def get_returns(self):
         return self.get_returns_from_data(self)

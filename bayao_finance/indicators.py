@@ -1,4 +1,5 @@
 from pandas import Series
+from numpy import where
 
 
 def get_sma_from_data(data: Series, n=20, min_periods=None, **kwargs):
@@ -51,6 +52,21 @@ def get_bollinger_bands_from_data(data, n=20, k=2):
     bb_sup = bb.add(std.mul(k))
 
     return bb_inf, bb, bb_sup
+
+
+def get_rsi(data, n=14, min_periods=None, **kwargs):
+    if not min_periods:
+        min_periods = n
+
+    delta = data.diff().copy()
+    u = where(delta >= 0, delta, 0)
+    d = where(delta < 0, -1 * delta, 0)
+    rs = (
+            u.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean() /
+            d.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean()
+    )
+    rsi_calc = 100 - 100 / (1 + rs)
+    return rsi_calc
 
 
 def get_returns_from_data(data):

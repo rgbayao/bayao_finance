@@ -2,9 +2,88 @@ from bayao_finance.stockseries import StockSeries
 from pandas import DataFrame, Series
 import numpy as np
 import pandas as pd
+import re
+from bayao_finance.decorators import singleton
+from bayao_finance.base_stock import BaseStock
 
 
-class StockFrame(DataFrame):
+def no_leading_or_trailing_pattern(word, leading='(?<![a-zA-Z])', trailing='(?![a-zA-Z])'):
+    return f'{leading}{word}{trailing}'
+
+
+OPEN_PATTERN = no_leading_or_trailing_pattern('open')
+HIGH_PATTERN = no_leading_or_trailing_pattern('high')
+LOW_PATTERN = no_leading_or_trailing_pattern('low')
+CLOSE_PATTERN = no_leading_or_trailing_pattern('close',
+                                               leading=r'((?<!(adj)(\s|_|-))(?<!(adjusted)(\s|_|-))(?<![a-zA-Z]))')
+ADJ_CLOSE_PATTERN = no_leading_or_trailing_pattern(r'((?<=(adjusted)(\s|_|-))|(?<=(adj)(\s|_|-)))close',
+                                                   leading='')
+VOLUME_PATTERN = no_leading_or_trailing_pattern('volume')
+
+
+@singleton
+class ColPatternMapper:
+    def __init__(self):
+        flags = re.IGNORECASE
+        self.compile_list = {'open': re.compile(OPEN_PATTERN, flags=flags),
+                             'high': re.compile(HIGH_PATTERN, flags=flags),
+                             'low': re.compile(LOW_PATTERN, flags=flags),
+                             'close': re.compile(CLOSE_PATTERN, flags=flags),
+                             'adj_close': re.compile(ADJ_CLOSE_PATTERN, flags=flags),
+                             'volume': re.compile(VOLUME_PATTERN, flags=flags),
+                             }
+        self.mapper = {}
+        self.founds_array = np.zeros(len(self.compile_list))
+
+    def map_columns(self, columns):
+        self.founds_array = np.zeros(len(self.compile_list))
+        self.mapper = {}
+        for i in columns:
+            self._map_col(i)
+        return self.mapper
+
+    def _map_col(self, col):
+        counter = 0
+        for key, value in self.compile_list.items():
+            if value.search(col):
+                self.founds_array[counter] += 1
+                self._mark_map(col, key, self.founds_array[counter])
+            counter += 1
+
+    def _mark_map(self, col, key, matches):
+        if matches == 1:
+            self.mapper[col] = key
+        else:
+            self.mapper[col] = f'{key}_{matches}'
+
+    def get_kind(self):
+        kind_mapper = ['o', 'h', 'l', 'c', 'a', 'v']
+        kind = ''
+        for i in range(0, len(self.founds_array)):
+            if self.founds_array[i] > 0:
+                kind += kind_mapper[i]
+        return kind
+
+
+def _ensure_columns(columns):
+    cols_map = _get_cols_map(columns)
+    cols_kind = _get_cols_kind(columns)
+    return cols_map, cols_kind
+
+
+def _get_cols_map(columns):
+    mapper = ColPatternMapper()
+    col_map = mapper.map_columns(columns)
+    return col_map
+
+
+def _get_cols_kind(columns):
+    mapper = ColPatternMapper()
+    kind = mapper.get_kind()
+    return kind
+
+
+class StockFrame(DataFrame, BaseStock):
     """
     Class to generate indexes with ohlcav and store data
 
@@ -47,31 +126,23 @@ class StockFrame(DataFrame):
             stock_token = 'Unknown'
         self.stock_token = stock_token
 
-        self._hist_kind = kind
-
-        if self._hist_kind == "ohlcav":
-            self.columns = pd.Index(['open', 'high', 'low', 'close', 'adj_close', 'volume'])
-            self.close_col_name = 'adj_close'
-            self._has_atr = True
-        elif self._hist_kind == "ohlcv":
-            self.columns = pd.Index(['open', 'high', 'low', 'close', 'volume'])
-            self._has_atr = True
-            self.close_col_name = 'close'
-        elif self._hist_kind == 'c':
-            self.columns = pd.Index(['target_close'])
-            self._has_atr = False
-            self.close_col_name = 'target_close'
+        if kind is None:
+            cols_map, kind = _ensure_columns(list(self.columns))
         else:
-            self._has_atr = False
-            self.columns = pd.Index([i.lower() for i in self.columns])
-            if 'target_close' in self.columns:
-                self.close_col_name = 'target_close'
-            elif 'adj_close' in self.columns:
-                self.close_col_name = 'adj_close'
-            elif 'close' in self.columns:
-                self.close_col_name = 'close'
-            else:
-                self.close_col_name = None
+            cols_map = _get_cols_map(list(self.columns))
+
+        self._hist_kind = kind
+        self.rename(columns=cols_map, inplace=True)
+
+        if 'ohlc' in self._hist_kind or 'ohla' in self._hist_kind:
+            self._has_atr = True
+
+        if 'a' in self._hist_kind:
+            self.close_col_name = 'adj_close'
+        elif 'c' in self._hist_kind:
+            self.close_col_name = 'close'
+        else:
+            self.close_col_name = None
 
     @property
     def _constructor(self):

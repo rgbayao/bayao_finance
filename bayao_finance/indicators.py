@@ -59,8 +59,10 @@ def get_rsi(data, n=14, min_periods=None, **kwargs):
         min_periods = n
 
     delta = data.diff().copy()
-    u = where(delta >= 0, delta, 0)
-    d = where(delta < 0, -1 * delta, 0)
+    u = delta * 0
+    d = delta * 0
+    u[delta >= 0] = delta[delta >= 0]
+    d[delta < 0] = delta[delta < 0]
     rs = (
             u.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean() /
             d.ewm(alpha=1 / n, min_periods=min_periods, **kwargs).mean()

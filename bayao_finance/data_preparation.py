@@ -68,7 +68,7 @@ class InputFormatter(TargetGenerator):
             raise AttributeError("Target type yet not available")
 
         if include_close:
-            self.data_inputs["close"] = self.stock_data.close
+            self.data_inputs["close"] = self.stock_data._stock_close
 
         if "indexes" in kwargs.keys():
             self._set_indexes(kwargs["indexes"])
@@ -127,11 +127,11 @@ class InputFormatter(TargetGenerator):
         for i in range(0, len(self.reference)):
             if self.reference[i] in ["sma", "ema"]:
                 self.data_inputs.iloc[:, i] = \
-                    self.data_inputs.iloc[:, i] / self.stock_data.close
+                    self.data_inputs.iloc[:, i] / self.stock_data._stock_close
             elif self.reference[i] == "rsi":
                 self.data_inputs.iloc[:, i] = self.data_inputs.iloc[:, i] / 100
             elif self.reference[i] == "bb":
-                self.data_inputs.iloc[:, i] = (self.stock_data.close - self.data_inputs.iloc[:, i+1])\
+                self.data_inputs.iloc[:, i] = (self.stock_data._stock_close - self.data_inputs.iloc[:, i + 1])\
                                       / (self.data_inputs.iloc[:, i+1] - self.data_inputs.iloc[:, i])
                 self.data_inputs.drop(columns=self.data_inputs.columns[i+1:i+3], inplace=True)
                 columns = list(self.data_inputs.columns)

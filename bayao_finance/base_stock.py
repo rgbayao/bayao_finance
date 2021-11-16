@@ -8,12 +8,14 @@ class BaseStock:
             stock_token = 'Unknown'
         self.stock_token = stock_token
 
-    def get_sma(self, n=20, min_periods=None, **kwargs):
+    def get_sma(self, data=None, n=20, min_periods=None, **kwargs):
         """
         Get a Series or DataFrame of Exponential Moving Average
 
         Parameters
         ----------
+        data: Series or Dataframe, default None
+            if None it is used self.
         n:int = Number of rows for index.
         min_periods: int, default None
             Minimum number of observations in window required to have a value
@@ -32,7 +34,9 @@ class BaseStock:
         **kwargs: pandas.Series().rolling properties
 
         """
-        return get_sma_from_data(self, n, min_periods, **kwargs)
+        if data is None:
+            data = self
+        return get_sma_from_data(data, n, min_periods, **kwargs)
 
     def get_ema(self, n=20, min_periods=None, **kwargs):
         """
@@ -81,6 +85,7 @@ class BaseStock:
 
     def get_bollinger_bands(self, n=20, k=2):
         """
+        Creates Dataframe with SMA and Bollinger Bands
         Parameters
         ----------
         n: int
@@ -90,7 +95,7 @@ class BaseStock:
 
         Returns
         -------
-
+        Dataframe with bb_inf (SMA - k * std), bb (SMA), bb_sup (SMA + k * std)
 
         """
         return get_bollinger_bands_from_data(self, n, k, token=self.stock_token)

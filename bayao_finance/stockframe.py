@@ -67,7 +67,7 @@ class ColPatternMapper:
 
 def _ensure_columns(columns):
     cols_map = _get_cols_map(columns)
-    cols_kind = _get_cols_kind(columns)
+    cols_kind = _get_cols_kind()
     return cols_map, cols_kind
 
 
@@ -77,7 +77,7 @@ def _get_cols_map(columns):
     return col_map
 
 
-def _get_cols_kind(columns):
+def _get_cols_kind():
     mapper = ColPatternMapper()
     kind = mapper.get_kind()
     return kind
@@ -105,9 +105,6 @@ class StockFrame(DataFrame, BaseStock):
     _metadata = ["_stock_indexes", "close_col_name", "_hist_kind", "stock_token"]
 
     def __init__(self, data, *args, stock_token=None, kind=None, **kwargs):
-        # DataFrame or list of DataFrames
-        # Columns: [open, high, low, close, volume]
-        # tickers: list or array
 
         if isinstance(data, DataFrame):
             if data.index[0] > data.index[1]:
@@ -200,16 +197,17 @@ class StockFrame(DataFrame, BaseStock):
         if not inplace:
             return frame
 
-    # def get_atr(self, n=14):
-    #
-    #     if not self._has_atr:
-    #         return None
-    #
-    #     tr = pd.DataFrame()
-    #     tr['HL'] = self.high - self.low
-    #     tr['CL'] = self[self.close_col_name].shift() - self.low
-    #     tr['HC'] = self.high - self.close.shift()
-    #     tr['max'] = tr.max(axis=1)
-    #     atr_calculation = self.get_sma(data=tr['max'], n=n)
-    #
-    #     return atr_calculation
+    def get_atr(self, n=14):
+
+        if not self._has_atr:
+            return None
+
+        tr_hl = self.high - self.low
+        tr = tr_hl.to_frame(name='HL')
+
+        tr['CL'] = self[self.close_col_name].shift() - self.low
+        tr['HC'] = self.high - self.close.shift()
+        tr['max'] = tr.max(axis=1)
+        atr_calculation = self.get_sma(data=tr['max'], n=n)
+
+        return atr_calculation

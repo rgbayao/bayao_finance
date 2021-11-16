@@ -7,7 +7,7 @@ from bayao_finance.decorators import singleton
 from bayao_finance.base_stock import BaseStock
 
 
-def no_leading_or_trailing_pattern(word, leading='(?<![a-zA-Z])', trailing='(?![a-zA-Z])'):
+def no_leading_or_trailing_pattern(word, leading='(?<![a-zA-Z])', trailing='(?![a-zA-Z]|_)'):
     return f'{leading}{word}{trailing}'
 
 
@@ -120,11 +120,8 @@ class StockFrame(DataFrame, BaseStock):
             except IndexError:
                 pass
 
-        super().__init__(data, *args, **kwargs)
-
-        if not stock_token:
-            stock_token = 'Unknown'
-        self.stock_token = stock_token
+        BaseStock.__init__(self, stock_token=stock_token)
+        DataFrame.__init__(self, data, *args, **kwargs)
 
         if kind is None:
             cols_map, kind = _ensure_columns(list(self.columns))
@@ -164,7 +161,8 @@ class StockFrame(DataFrame, BaseStock):
             result.__class__ = StockFrame
             result.close_col_name = close_col
         elif isinstance(result, DataFrame) and close_col not in result:
-            result.__class__ = DataFrame
+            result.__class__ = StockFrame
+            result.close_col_name = None
         return result
 
     def __setattr__(self, attr, val):
@@ -175,6 +173,8 @@ class StockFrame(DataFrame, BaseStock):
             super().__setattr__(attr, val)
 
     def _get_target_close(self):
+        if self.close_col_name is None:
+            return None
         return self[self.close_col_name]
 
     def _set_target_close(self, col):
@@ -193,6 +193,9 @@ class StockFrame(DataFrame, BaseStock):
         if isinstance(col, Series):
             frame.close_col_name = col.name
             frame[frame.close_col_name] = col
+        elif isinstance(col, str):
+            if col in frame.columns:
+                frame.close_col_name = col
 
         if not inplace:
             return frame

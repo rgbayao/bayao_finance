@@ -31,7 +31,8 @@ class StockSeries(Series, BaseStock):
             except IndexError:
                 pass
 
-        super().__init__(data, *args, **kwargs)
+        BaseStock.__init__(self, stock_token=stock_token)
+        Series.__init__(self, data, *args, **kwargs)
 
         self.name = 'close'
 
@@ -41,9 +42,6 @@ class StockSeries(Series, BaseStock):
                                "bb": self.get_bollinger_bands,
                                "rsi": self.get_rsi,
                                "returns": self.get_returns}
-        if not stock_token:
-            stock_token = 'Unknown'
-        self.stock_token = stock_token
 
     @property
     def _constructor(self):

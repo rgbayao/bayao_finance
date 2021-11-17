@@ -34,8 +34,6 @@ class StockSeries(Series, BaseStock):
         BaseStock.__init__(self, stock_token=stock_token)
         Series.__init__(self, data, *args, **kwargs)
 
-        self.name = 'close'
-
         self._stock_indexes = {"sma": self.get_sma,
                                "ema": self.get_ema,
                                "macd": self.get_macd,

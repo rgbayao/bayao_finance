@@ -1,7 +1,6 @@
 from bayao_finance.stockseries import StockSeries
 from pandas import DataFrame, Series
 import numpy as np
-import pandas as pd
 import re
 from bayao_finance.decorators import singleton
 from bayao_finance.base_stock import BaseStock

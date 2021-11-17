@@ -6,7 +6,7 @@ from bayao_finance import StockFrame
 
 
 def _clean_date(d):
-    if d == 'now':
+    if d is None:
         save_date = datetime.date.today()
     elif isinstance(d, str):
         save_date = datetime.datetime.strptime(d, "%Y-%m-%d")
@@ -39,11 +39,13 @@ class StockManipulator:
         self.data_dict = {}
         self.tickers = []
 
-    def download_data(self, tickers, save_data=False, period="max", interval='1d', start='1900-01-01', end='now',
+    def download_data(self, tickers, save_data=False, period="max", interval='1d', start=None, end=None,
                       **kwargs):
         """
         Parameters
         ----------
+        save_data : bool
+            Default True. If false won't save the data in computer
         tickers : str, list
             List of tickers to download
         period : str
@@ -82,7 +84,7 @@ class StockManipulator:
             self._save_data(end)
 
         self.data_dict = dict(zip(self.tickers, self.data_list))
-        return self.data_list
+        return self.data_dict
 
     def read_data(self, file_date=None):
         """
@@ -122,7 +124,7 @@ class StockManipulator:
                 raise FileNotFoundError(f'No file for ticker {i} in {folder_path}')
             else:
                 file_path = os.path.join(folder_path, f'{date_prefix}_{i}')
-                df = StockFrame(pd.read_csv(file_path), index_col=0, parse_dates=True)
+                df = StockFrame(pd.read_csv(file_path), index_col=0, parse_dates=True, stock_token=i)
                 self.data_dict[i] = df
                 self.data_list.append(df)
 
@@ -144,16 +146,12 @@ class StockManipulator:
 
         save_date = _clean_date(last_date)
 
-        try:
-            os.mkdir(save_date.today().strftime("%Y-%m-%d"))
-        except FileExistsError:
-            pass
         # save data so you can download it later
         today = save_date.strftime("%Y-%m-%d")
 
         save_path = os.path.join('.', 'data', today)
         os.makedirs(save_path, exist_ok=True)
 
-        for i in self.tickers:
-            self.data_list[i].to_csv(os.path.join(save_path, f'{today}_{i}'))
+        for i in range(0, len(self.tickers)):
+            self.data_list[i].to_csv(os.path.join(save_path, f'{today}_{self.tickers[i]}'))
 

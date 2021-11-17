@@ -7,5 +7,5 @@ setup(
    author='Rafael Bayao',
    author_email='rgbayao@gmail.com',
    packages=['bayao_finance'],
-   install_requires=['pandas, numpy, yfinance, datetime'],
+   install_requires=['pandas', 'numpy', 'yfinance', 'datetime'],
 )

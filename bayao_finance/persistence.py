@@ -3,6 +3,7 @@ import pandas as pd
 import yfinance as yf
 import os
 from bayao_finance import StockFrame
+from bayao_finance.ticker_extension import TickerParser
 
 
 def _clean_date(d):
@@ -15,6 +16,19 @@ def _clean_date(d):
     else:
         raise AttributeError('file_date must be a datetime object, a string in "%Y-%m-%d" format or "now"')
     return save_date
+
+
+def _validate_tickers(tickers, valid_tickers):
+    for i in tickers:
+        found = False
+        counter = 0
+        while not found and counter < len(valid_tickers):
+            if i.ticker == valid_tickers[counter].ticker:
+                found = True
+            counter += 1
+        if not found:
+            print(f'Ticker {i.ticker} not found in persistence folder')
+            tickers.remove(i)
 
 
 class StockManipulator:
@@ -86,7 +100,7 @@ class StockManipulator:
         self.data_dict = dict(zip(self.tickers, self.data_list))
         return self.data_dict
 
-    def read_data(self, file_date=None):
+    def read_data(self, file_date=None, tickers=None):
         """
 
         Parameters
@@ -109,29 +123,36 @@ class StockManipulator:
         if not os.path.isdir(folder_path):
             raise IsADirectoryError("No such directory: " + folder_path)
 
-        self._read_data(folder_path, date_string)
+        if isinstance(tickers, str):
+            tickers = [tickers]
+
+        self._read_data(folder_path, date_string, tickers)
 
         return self.data_dict
 
-    def _read_data(self, folder_path, date_prefix):
-        folder_tickers_with_extension = [i.split('_')[-1] for i in os.listdir(folder_path)]
-        folder_tickers = [i.split('.')[0] for i in folder_tickers_with_extension]
+    def _read_data(self, folder_path, date_prefix, tickers):
+        folder_tickers_with_extension = ['_'.join(i.split('_')[1:]) for i in os.listdir(folder_path)]
+        folder_tickers = [TickerParser(i.split('.csv')[0]) for i in folder_tickers_with_extension]
 
         self.data_list = []
         self.data_dict = {}
-        for i in self.tickers:
-            if i not in folder_tickers:
-                raise FileNotFoundError(f'No file for ticker {i} in {folder_path}')
-            else:
-                file_path = os.path.join(folder_path, f'{date_prefix}_{i}')
-                df = StockFrame(pd.read_csv(file_path), index_col=0, parse_dates=True, stock_token=i)
-                self.data_dict[i] = df
-                self.data_list.append(df)
+
+        if not tickers:
+            tickers = folder_tickers
+        else:
+            tickers = [TickerParser(i) for i in tickers]
+            _validate_tickers(tickers, folder_tickers)
+
+        for i in tickers:
+            file_path = os.path.join(folder_path, f'{date_prefix}_{i.save_format()}.csv')
+            df = StockFrame(pd.read_csv(file_path, index_col=0, parse_dates=True), stock_token=i.ticker)
+            self.data_dict[i.ticker] = df
+            self.data_list.append(df)
 
     def _segregate_yahoo_data(self, data, tickers):
         self.data_list = []
         for i in tickers:
-            self.data_list.append(StockFrame(data[i], stock_token=i))
+            self.data_list.append(StockFrame(data[i], stock_token=i).dropna())
 
     def _download_from_yfinance(self, tickers, **kwargs):
         self.data_list = []
@@ -153,5 +174,5 @@ class StockManipulator:
         os.makedirs(save_path, exist_ok=True)
 
         for i in range(0, len(self.tickers)):
-            self.data_list[i].to_csv(os.path.join(save_path, f'{today}_{self.tickers[i]}'))
-
+            t = TickerParser(self.tickers[i])
+            self.data_list[i].to_csv(os.path.join(save_path, f'{today}_{t.save_format()}.csv'))
